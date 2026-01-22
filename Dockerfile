@@ -38,7 +38,7 @@ RUN { \
     echo 'opcache.enable_cli=1'; \
     echo 'upload_max_filesize=32M'; \
     echo 'post_max_size=32M'; \
-    echo 'memory_limit=256M'; \
+    echo 'memory_limit=500M'; \
 } > /usr/local/etc/php/conf.d/drupal.ini
 
 # Configure Apache for Drupal
