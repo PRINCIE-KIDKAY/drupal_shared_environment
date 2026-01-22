@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  drupal_web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: drupal_web
+    ports:
+      - "20100:80"
+    volumes:
+      - ./drupal:/var/www/html/drupal
+    env_file:
+      - .env
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PORT: ${DB_PORT:-3306}
+    networks:
+      - drupal_network
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: drupal_phpmyadmin
+    restart: always
+    ports:
+      - "20101:80"
+    env_file:
+      - .env
+    environment:
+      PMA_HOST: ${DB_HOST}
+      PMA_USER: ${DB_USER}
+      PMA_PASSWORD: ${DB_PASSWORD}
+      UPLOAD_LIMIT: 32M
+    depends_on:
+      - drupal_web
+    networks:
+      - drupal_network
+
+networks:
+  drupal_network:
+    driver: bridge

@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: drupal_web
+    ports:
+      - "8080:80"
+    volumes:
+      - ./drupal:/var/www/html/drupal
+    env_file:
+      - .env
+    environment:
+      DB_HOST: ${DB_HOST:-db}
+      DB_NAME: ${DB_NAME:-drupal}
+      DB_USER: ${DB_USER:-drupal}
+      DB_PASSWORD: ${DB_PASSWORD:-drupal}
+      DB_PORT: ${DB_PORT:-3306}
+    depends_on:
+      - db
+    networks:
+      - drupal_network
+
+  db:
+    image: mysql:8.0
+    container_name: drupal_db
+    restart: always
+    env_file:
+      - .env
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-drupal}
+      MYSQL_USER: ${DB_USER:-drupal}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-drupal}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - drupal_network
+    command: --default-authentication-plugin=mysql_native_password
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: drupal_phpmyadmin
+    restart: always
+    ports:
+      - "8081:80"
+    env_file:
+      - .env
+    environment:
+      PMA_HOST: ${DB_HOST:-db}
+      PMA_USER: ${DB_USER:-root}
+      PMA_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+      UPLOAD_LIMIT: 32M
+    depends_on:
+      - db
+    networks:
+      - drupal_network
+
+volumes:
+  db_data:
+
+networks:
+  drupal_network:
+    driver: bridge
+

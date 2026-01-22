@@ -1,0 +1,86 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# Docker
+*.log
+docker-compose.override.yml
+.docker/
+
+# Drupal
+drupal/vendor/
+drupal/web/sites/*/files/
+drupal/web/sites/*/private/
+drupal/web/sites/*/services.local.yml
+drupal/web/sites/*/translations/
+drupal/web/sites/default/files/
+drupal/web/sites/default/private/
+drupal/web/sites/default/services.local.yml
+drupal/web/sites/default/translations/
+
+# Database
+*.sql
+*.sql.gz
+*.sqlite
+*.sqlite3
+
+# Build artifacts
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.map
+.sass-cache/
+*.css.map
+*.js.map
+
+# Temporary files
+*.tmp
+*.bak
+*.cache
+*.swp
+*.swo
+*~
+.cache/
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+*.code-workspace
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Package manager (root level - core package files are usually tracked)
+# package-lock.json
+# yarn.lock
+pnpm-lock.yaml
+
+# Backup files
+*.backup
+*.old
+*.orig
