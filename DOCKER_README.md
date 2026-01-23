@@ -23,6 +23,8 @@ This guide will help you run your Drupal application using Docker and Docker Com
    # OR for external database
    docker-compose -f docker-compose.local.yml up -d
    ```
+   
+   **Note:** On first run, the container will automatically run `composer install` to install PHP dependencies. This may take a few minutes.
 
 3. **Access your Drupal site:**
    - Drupal: http://localhost:8080 (prod) or http://localhost:20100 (local)
@@ -142,10 +144,12 @@ ports:
 Run the file permissions commands listed above.
 
 ### Composer dependencies
-If you need to install or update Composer dependencies:
+The container automatically runs `composer install` on first startup if the vendor directory is missing. If you need to manually install or update Composer dependencies:
 ```bash
 docker exec -it drupal_web composer install --working-dir=/var/www/html/drupal
 ```
+
+**Note:** If you see an error about missing `vendor/autoload.php`, the container should automatically install dependencies on the next startup. You can also manually run the command above.
 
 ## Environment Variables
 
