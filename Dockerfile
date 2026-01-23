@@ -54,9 +54,10 @@ RUN echo '<VirtualHost *:80>' > /etc/apache2/sites-available/000-default.conf \
     && echo '    CustomLog ${APACHE_LOG_DIR}/access.log combined' >> /etc/apache2/sites-available/000-default.conf \
     && echo '</VirtualHost>' >> /etc/apache2/sites-available/000-default.conf
 
-# Copy entrypoint script
+# Copy entrypoint script and fix line endings (Windows CRLF to Unix LF)
 COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh && \
+    chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Set proper permissions
 RUN chown -R www-data:www-data /var/www/html
