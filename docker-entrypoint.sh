@@ -13,11 +13,15 @@ if [ ! -f "/var/www/html/drupal/vendor/autoload.php" ]; then
     
     cd /var/www/html/drupal
     
-    # Set composer memory limit and run install
+    # Set composer memory limit and process timeout
     export COMPOSER_MEMORY_LIMIT=-1
-    echo "Running composer install (this may take several minutes)..."
+    export COMPOSER_PROCESS_TIMEOUT=0  # 0 = no timeout (unlimited)
+    echo "Running composer install..."
+    echo "WARNING: On Windows, extracting drupal/core (thousands of files) can take 10-20 minutes"
+    echo "         due to slow Docker volume mounts. Please be patient..."
+    echo ""
     
-    if composer install --no-interaction --prefer-dist 2>&1; then
+    if composer install --no-interaction --prefer-dist --verbose 2>&1; then
         echo "Composer install completed successfully."
     else
         COMPOSER_EXIT_CODE=$?
