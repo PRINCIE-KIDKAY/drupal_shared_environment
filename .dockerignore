@@ -24,8 +24,6 @@ README.md
 Thumbs.db
 
 # Drupal
-drupal/web/sites/default/files
-drupal/web/sites/*/files
 drupal/vendor
 
 # Node

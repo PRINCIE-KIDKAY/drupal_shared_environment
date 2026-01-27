@@ -9,17 +9,7 @@
 *.log
 docker-compose.override.yml
 .docker/
-
-# Drupal
-drupal/vendor/
-drupal/web/sites/*/files/
-drupal/web/sites/*/private/
-drupal/web/sites/*/services.local.yml
-drupal/web/sites/*/translations/
-drupal/web/sites/default/files/
-drupal/web/sites/default/private/
-drupal/web/sites/default/services.local.yml
-drupal/web/sites/default/translations/
+drupal/vendor
 
 # Database
 *.sql

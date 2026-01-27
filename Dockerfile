@@ -25,6 +25,10 @@ RUN apt-get update && apt-get install -y \
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
+# Copy Drupal project files (vendor is excluded via .dockerignore)
+# This ensures files are available in production without volume mounts
+COPY drupal /var/www/html/drupal
+
 # Enable Apache mod_rewrite and other performance modules
 RUN a2enmod rewrite headers expires deflate
 
@@ -83,7 +87,9 @@ COPY docker-entrypoint.sh /usr/local/bin/
 RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh && \
     chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Set proper permissions
+# Set proper permissions for copied files
+# Note: This sets ownership, but write permissions for sites/default/files
+# will be handled by the entrypoint script at runtime
 RUN chown -R www-data:www-data /var/www/html
 
 # Expose port 80
