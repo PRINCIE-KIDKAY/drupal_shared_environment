@@ -25,31 +25,55 @@ RUN apt-get update && apt-get install -y \
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Enable Apache mod_rewrite for clean URLs
-RUN a2enmod rewrite
+# Enable Apache mod_rewrite and other performance modules
+RUN a2enmod rewrite headers expires deflate
 
-# Set recommended PHP.ini settings for Drupal
+# Set optimized PHP.ini settings for Drupal performance
 RUN { \
-    echo 'opcache.memory_consumption=128'; \
-    echo 'opcache.interned_strings_buffer=8'; \
-    echo 'opcache.max_accelerated_files=4000'; \
+    echo 'opcache.enable=1'; \
+    echo 'opcache.memory_consumption=192M'; \
+    echo 'opcache.interned_strings_buffer=12'; \
+    echo 'opcache.max_accelerated_files=10000'; \
     echo 'opcache.revalidate_freq=60'; \
+    echo 'opcache.validate_timestamps=1'; \
+    echo 'opcache.save_comments=1'; \
     echo 'opcache.fast_shutdown=1'; \
-    echo 'opcache.enable_cli=1'; \
+    echo 'opcache.enable_cli=0'; \
+    echo ''; \
     echo 'upload_max_filesize=32M'; \
     echo 'post_max_size=32M'; \
-    echo 'memory_limit=500M'; \
+    echo ''; \
+    echo 'memory_limit=256M'; \
+    echo 'max_execution_time=120'; \
+    echo 'max_input_time=120'; \
+    echo ''; \
+    echo 'realpath_cache_size=2048K'; \
+    echo 'realpath_cache_ttl=600'; \
 } > /usr/local/etc/php/conf.d/drupal.ini
 
-# Configure Apache for Drupal
+
+
+# Configure Apache for Drupal with performance optimizations
 RUN echo '<VirtualHost *:80>' > /etc/apache2/sites-available/000-default.conf \
     && echo '    ServerAdmin webmaster@localhost' >> /etc/apache2/sites-available/000-default.conf \
     && echo '    DocumentRoot /var/www/html/drupal/web' >> /etc/apache2/sites-available/000-default.conf \
+    && echo '' >> /etc/apache2/sites-available/000-default.conf \
+    && echo '    # Performance optimizations' >> /etc/apache2/sites-available/000-default.conf \
+    && echo '    EnableSendfile Off' >> /etc/apache2/sites-available/000-default.conf \
+    && echo '    FileETag None' >> /etc/apache2/sites-available/000-default.conf \
+    && echo '' >> /etc/apache2/sites-available/000-default.conf \
     && echo '    <Directory /var/www/html/drupal/web>' >> /etc/apache2/sites-available/000-default.conf \
-    && echo '        Options Indexes FollowSymLinks' >> /etc/apache2/sites-available/000-default.conf \
+    && echo '        Options -Indexes +FollowSymLinks' >> /etc/apache2/sites-available/000-default.conf \
     && echo '        AllowOverride All' >> /etc/apache2/sites-available/000-default.conf \
     && echo '        Require all granted' >> /etc/apache2/sites-available/000-default.conf \
     && echo '    </Directory>' >> /etc/apache2/sites-available/000-default.conf \
+    && echo '' >> /etc/apache2/sites-available/000-default.conf \
+    && echo '    # Enable compression' >> /etc/apache2/sites-available/000-default.conf \
+    && echo '    <Location />' >> /etc/apache2/sites-available/000-default.conf \
+    && echo '        SetOutputFilter DEFLATE' >> /etc/apache2/sites-available/000-default.conf \
+    && echo '        SetEnvIfNoCase Request_URI \.(?:gif|jpe?g|png|zip|gz|bz2|pdf)$ no-gzip dont-vary' >> /etc/apache2/sites-available/000-default.conf \
+    && echo '    </Location>' >> /etc/apache2/sites-available/000-default.conf \
+    && echo '' >> /etc/apache2/sites-available/000-default.conf \
     && echo '    ErrorLog ${APACHE_LOG_DIR}/error.log' >> /etc/apache2/sites-available/000-default.conf \
     && echo '    CustomLog ${APACHE_LOG_DIR}/access.log combined' >> /etc/apache2/sites-available/000-default.conf \
     && echo '</VirtualHost>' >> /etc/apache2/sites-available/000-default.conf
