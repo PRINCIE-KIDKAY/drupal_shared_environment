@@ -18,9 +18,9 @@ jobs:
 
       - name: Deploy to server
         env:
-          SERVER_HOST: ${{ secrets.KMDEV_TEST_CONTABO_SERVER_ID }}
+          SERVER_HOST: ${{ secrets.SERVER_IP }}
           SERVER_USER: ${{ secrets.SERVER_USER }}
-          SERVER_PASSWORD: ${{ secrets.KMDEV_TEST_CONTABO_SERVER_PASSWORD }}
+          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           echo "USER=$SERVER_USER"
