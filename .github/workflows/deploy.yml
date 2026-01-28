@@ -23,7 +23,10 @@ jobs:
           SERVER_PASSWORD: ${{ secrets.KMDEV_TEST_CONTABO_SERVER_PASSWORD }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          sshpass -p "$KMDEV_TEST_CONTABO_SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no $SERVER_USER@$KMDEV_TEST_CONTABO_SERVER_ID << EOF
+          echo "USER=$SERVER_USER"
+          echo "HOST=$SERVER_HOST"
+        
+          sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_HOST << EOF
           
           set -e
 
