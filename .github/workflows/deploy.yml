@@ -78,7 +78,7 @@ jobs:
           echo "HOST=$SERVER_HOST"
           echo "Starting certificate creation/renewal process..."
         
-          sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no "$SERVER_USER@$SERVER_HOST" << 'EOF'
+          sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=3 "$SERVER_USER@$SERVER_HOST" << 'EOF'
           
           set -e
 
@@ -88,37 +88,88 @@ jobs:
 
           cd "$PROJECT_DIR"
 
+          # ---- Ensure certbot directories exist ----
+          mkdir -p ./nginx/certbot/www
+          mkdir -p ./nginx/certbot/conf
+
+          # ---- Ensure nginx is running and healthy ----
+          echo "Checking nginx status..."
+          if ! docker compose -f "$COMPOSE_FILE" ps nginx | grep -q "Up"; then
+            echo "Starting nginx..."
+            docker compose -f "$COMPOSE_FILE" up -d nginx
+            echo "Waiting for nginx to be ready..."
+            sleep 5
+          fi
+
+          # ---- Verify nginx is running ----
+          if ! docker compose -f "$COMPOSE_FILE" ps nginx | grep -q "Up"; then
+            echo "ERROR: Nginx failed to start!"
+            docker compose -f "$COMPOSE_FILE" logs nginx
+            exit 1
+          fi
+
+          # ---- Verify nginx configuration ----
+          echo "Verifying nginx configuration..."
+          if ! docker compose -f "$COMPOSE_FILE" exec -T nginx nginx -t 2>&1; then
+            echo "WARNING: Nginx configuration test failed, but continuing..."
+            echo "This may be due to missing SSL certificates which will be created now"
+          fi
+
+          # ---- Test ACME challenge path is accessible ----
+          echo "Testing ACME challenge path..."
+          docker compose -f "$COMPOSE_FILE" exec -T nginx sh -c "echo 'test' > /var/www/certbot/test.txt && cat /var/www/certbot/test.txt" || {
+            echo "WARNING: Could not write to certbot webroot"
+          }
+
           # ---- Bootstrap certs ONLY (no renew in CI) ----
-          echo "Checking certificate for drupal.blue.kmdev.co.za..."
-          if [ ! -d "./nginx/certbot/conf/live/drupal.blue.kmdev.co.za" ]; then
-            echo "Creating certificate for drupal.blue.kmdev.co.za..."
-            docker compose -f "$COMPOSE_FILE" run --rm certbot certonly \
-              --webroot \
-              -w /var/www/certbot \
-              -d drupal.blue.kmdev.co.za \
-              --agree-tos \
-              --email certs@kmdev.co.za \
-              --non-interactive
-          else
-            echo "Certificate already exists for drupal.blue.kmdev.co.za"
-          fi
+          create_cert() {
+            local domain=$1
+            local cert_dir="./nginx/certbot/conf/live/$domain"
+            
+            echo "Checking certificate for $domain..."
+            if [ ! -d "$cert_dir" ]; then
+              echo "Creating certificate for $domain..."
+              
+              # Run certbot with full output
+              if docker compose -f "$COMPOSE_FILE" run --rm certbot certonly \
+                --webroot \
+                -w /var/www/certbot \
+                -d "$domain" \
+                --agree-tos \
+                --email certs@kmdev.co.za \
+                --non-interactive \
+                --verbose 2>&1; then
+                echo "Successfully created certificate for $domain"
+                
+                # Verify certificate was created
+                if [ -d "$cert_dir" ] && [ -f "$cert_dir/fullchain.pem" ]; then
+                  echo "Certificate verified: $cert_dir/fullchain.pem exists"
+                else
+                  echo "WARNING: Certificate directory exists but fullchain.pem not found"
+                fi
+              else
+                local exit_code=$?
+                echo "ERROR: Failed to create certificate for $domain (exit code: $exit_code)"
+                echo "Checking if domain is reachable..."
+                curl -I "http://$domain/.well-known/acme-challenge/test" || echo "Domain not reachable"
+                return 1
+              fi
+            else
+              echo "Certificate already exists for $domain"
+            fi
+          }
 
-          echo "Checking certificate for pma.blue.kmdev.co.za..."
-          if [ ! -d "./nginx/certbot/conf/live/pma.blue.kmdev.co.za" ]; then
-            echo "Creating certificate for pma.blue.kmdev.co.za..."
-            docker compose -f "$COMPOSE_FILE" run --rm certbot certonly \
-              --webroot \
-              -w /var/www/certbot \
-              -d pma.blue.kmdev.co.za \
-              --agree-tos \
-              --email certs@kmdev.co.za \
-              --non-interactive
-          else
-            echo "Certificate already exists for pma.blue.kmdev.co.za"
-          fi
+          # Create certificates
+          create_cert "drupal.blue.kmdev.co.za" || exit 1
+          create_cert "pma.blue.kmdev.co.za" || exit 1
 
-          # ---- Reload nginx ----
-          docker compose -f "$COMPOSE_FILE" restart nginx
+          # ---- Reload nginx to pick up new certificates ----
+          echo "Reloading nginx..."
+          docker compose -f "$COMPOSE_FILE" exec -T nginx nginx -s reload || {
+            echo "Nginx reload failed, restarting..."
+            docker compose -f "$COMPOSE_FILE" restart nginx
+          }
 
+          echo "Certificate process completed successfully!"
 
           EOF
