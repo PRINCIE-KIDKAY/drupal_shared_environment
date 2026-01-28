@@ -13,8 +13,6 @@ services:
       # Use named volume for vendor to improve performance on Windows
       # This avoids slow file I/O through Windows Docker volume mounts
       - drupal_vendor:/var/www/html/vendor
-    env_file:
-      - .env
     environment:
       DB_HOST: ${DB_HOST:-db}
       DB_NAME: ${DB_NAME:-drupal}
@@ -30,8 +28,6 @@ services:
     image: mysql:8.0
     container_name: drupal_db
     restart: always
-    env_file:
-      - .env
     environment:
       MYSQL_DATABASE: ${DB_NAME:-drupal}
       MYSQL_USER: ${DB_USER:-drupal}
@@ -51,8 +47,6 @@ services:
     restart: always
     ports:
       - "8081:80"
-    env_file:
-      - .env
     environment:
       PMA_HOST: ${DB_HOST:-db}
       PMA_USER: ${DB_USER:-root}
