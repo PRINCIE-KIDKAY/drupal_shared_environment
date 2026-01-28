@@ -55,8 +55,43 @@ jobs:
           # ---- Start rest of stack ----
           docker compose -f "$COMPOSE_FILE" up -d --build
 
+          EOF
+
+  certificates:
+    runs-on: ubuntu-latest
+    needs: deploy
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Create and renew certificates
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_IP }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
+        run: |
+          echo "USER=$SERVER_USER"
+          echo "HOST=$SERVER_HOST"
+          echo "Starting certificate creation/renewal process..."
+        
+          sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no "$SERVER_USER@$SERVER_HOST" << 'EOF'
+          
+          set -e
+
+          # ---- Config ----
+          PROJECT_DIR="$HOME/dev/projects/bluevine"
+          COMPOSE_FILE="docker-compose.prod.yml"
+
+          cd "$PROJECT_DIR"
+
           # ---- Bootstrap certs (idempotent) ----
+          echo "Checking certificate for drupal.blue.kmdev.co.za..."
           if [ ! -d "./nginx/certbot/conf/live/drupal.blue.kmdev.co.za" ]; then
+            echo "Creating certificate for drupal.blue.kmdev.co.za..."
             docker compose -f "$COMPOSE_FILE" run --rm certbot certonly \
             --webroot \
             -w /var/www/certbot \
@@ -64,10 +99,18 @@ jobs:
             --agree-tos \
             --email admin@blue.kmdev.co.za \
             --non-interactive
-
+            echo "Certificate created for drupal.blue.kmdev.co.za"
+          else
+            echo "Certificate already exists for drupal.blue.kmdev.co.za, attempting renewal..."
+            docker compose -f "$COMPOSE_FILE" run --rm certbot renew \
+            --webroot \
+            -w /var/www/certbot \
+            --non-interactive || echo "Renewal not needed or failed (this is OK if cert is not expiring soon)"
           fi
 
+          echo "Checking certificate for pma.blue.kmdev.co.za..."
           if [ ! -d "./nginx/certbot/conf/live/pma.blue.kmdev.co.za" ]; then
+            echo "Creating certificate for pma.blue.kmdev.co.za..."
             docker compose -f "$COMPOSE_FILE" run --rm certbot certonly \
             --webroot \
             -w /var/www/certbot \
@@ -75,9 +118,18 @@ jobs:
             --agree-tos \
             --email admin@blue.kmdev.co.za \
             --non-interactive
+            echo "Certificate created for pma.blue.kmdev.co.za"
+          else
+            echo "Certificate already exists for pma.blue.kmdev.co.za, attempting renewal..."
+            docker compose -f "$COMPOSE_FILE" run --rm certbot renew \
+            --webroot \
+            -w /var/www/certbot \
+            --non-interactive || echo "Renewal not needed or failed (this is OK if cert is not expiring soon)"
           fi
 
           # ---- Reload nginx with certs ----
+          echo "Reloading nginx to apply certificate changes..."
           docker compose -f "$COMPOSE_FILE" restart nginx
+          echo "Certificate process completed successfully"
 
           EOF
