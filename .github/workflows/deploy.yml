@@ -1,0 +1,52 @@
+name: Production Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Deploy to server
+        env:
+          SERVER_HOST: ${{ secrets.KMDEV_TEST_CONTABO_SERVER_ID }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PASSWORD: ${{ secrets.KMDEV_TEST_CONTABO_SERVER_PASSWORD }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          sshpass -p "$KMDEV_TEST_CONTABO_SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no $SERVER_USER@$KMDEV_TEST_CONTABO_SERVER_ID << EOF
+          
+          set -e
+
+          # ---- Config ----
+          PROJECT_DIR="\$HOME/dev/projects/drupal-research"
+          REPO_URL="https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          COMPOSE_FILE="docker-compose.prod.yml"
+
+          # ---- Create dir ----
+          mkdir -p \$PROJECT_DIR
+          cd \$PROJECT_DIR
+
+          # ---- Git clone or pull ----
+          if [ ! -d ".git" ]; then
+              git clone \$REPO_URL .
+          else
+              git remote set-url origin \$REPO_URL
+              git fetch origin
+              git reset --hard origin/main
+          fi
+
+          # ---- Docker deploy ----
+          docker compose -f \$COMPOSE_FILE pull
+          docker compose -f \$COMPOSE_FILE up -d --build
+
+          EOF
