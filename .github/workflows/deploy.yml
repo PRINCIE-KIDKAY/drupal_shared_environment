@@ -28,7 +28,7 @@ jobs:
           set -e
 
           # ---- Config ----
-          PROJECT_DIR="\$HOME/dev/projects/drupal-research"
+          PROJECT_DIR="\$HOME/dev/projects/bluevine"
           REPO_URL="https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
           COMPOSE_FILE="docker-compose.prod.yml"
 
