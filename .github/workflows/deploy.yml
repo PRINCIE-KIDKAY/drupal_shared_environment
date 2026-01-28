@@ -57,26 +57,27 @@ jobs:
 
           # ---- Bootstrap certs (idempotent) ----
           if [ ! -d "./nginx/certbot/conf/live/drupal.blue.kmdev.co.za" ]; then
-            docker compose run --rm certbot certonly \
-              --webroot \
-              -w /var/www/certbot \
-              -d drupal.blue.kmdev.co.za \
-              --agree-tos \
-              --email admin@blue.kmdev.co.za \
-              --non-interactive
+            docker compose -f "$COMPOSE_FILE" run --rm certbot certonly \
+            --webroot \
+            -w /var/www/certbot \
+            -d drupal.blue.kmdev.co.za \
+            --agree-tos \
+            --email admin@blue.kmdev.co.za \
+            --non-interactive
+
           fi
 
           if [ ! -d "./nginx/certbot/conf/live/pma.blue.kmdev.co.za" ]; then
-            docker compose run --rm certbot certonly \
-              --webroot \
-              -w /var/www/certbot \
-              -d pma.blue.kmdev.co.za \
-              --agree-tos \
-              --email admin@blue.kmdev.co.za \
-              --non-interactive
+            docker compose -f "$COMPOSE_FILE" run --rm certbot certonly \
+            --webroot \
+            -w /var/www/certbot \
+            -d pma.blue.kmdev.co.za \
+            --agree-tos \
+            --email admin@blue.kmdev.co.za \
+            --non-interactive
           fi
 
           # ---- Reload nginx with certs ----
-          docker compose restart nginx
+          docker compose -f "$COMPOSE_FILE" restart nginx
 
           EOF
