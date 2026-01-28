@@ -26,30 +26,57 @@ jobs:
           echo "USER=$SERVER_USER"
           echo "HOST=$SERVER_HOST"
         
-          sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_HOST << EOF
+          sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no "$SERVER_USER@$SERVER_HOST" << 'EOF'
           
           set -e
 
           # ---- Config ----
-          PROJECT_DIR="\$HOME/dev/projects/bluevine"
+          PROJECT_DIR="$HOME/dev/projects/bluevine"
           REPO_URL="https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
           COMPOSE_FILE="docker-compose.prod.yml"
 
           # ---- Create dir ----
-          mkdir -p \$PROJECT_DIR
-          cd \$PROJECT_DIR
+          mkdir -p "$PROJECT_DIR"
+          cd "$PROJECT_DIR"
 
           # ---- Git clone or pull ----
           if [ ! -d ".git" ]; then
-              git clone \$REPO_URL .
+              git clone "$REPO_URL" .
           else
-              git remote set-url origin \$REPO_URL
+              git remote set-url origin "$REPO_URL"
               git fetch origin
               git reset --hard origin/main
           fi
 
-          # ---- Docker deploy ----
-          docker compose -f \$COMPOSE_FILE pull
-          docker compose -f \$COMPOSE_FILE up -d --build
+          # ---- Start nginx first (ACME required) ----
+          docker compose -f "$COMPOSE_FILE" up -d nginx
+          sleep 10
+
+          # ---- Start rest of stack ----
+          docker compose -f "$COMPOSE_FILE" up -d --build
+
+          # ---- Bootstrap certs (idempotent) ----
+          if [ ! -d "./nginx/certbot/conf/live/drupal.blue.kmdev.co.za" ]; then
+            docker compose run --rm certbot certonly \
+              --webroot \
+              -w /var/www/certbot \
+              -d drupal.blue.kmdev.co.za \
+              --agree-tos \
+              --email admin@blue.kmdev.co.za \
+              --non-interactive
+          fi
+
+          if [ ! -d "./nginx/certbot/conf/live/pma.blue.kmdev.co.za" ]; then
+            docker compose run --rm certbot certonly \
+              --webroot \
+              -w /var/www/certbot \
+              -d pma.blue.kmdev.co.za \
+              --agree-tos \
+              --email admin@blue.kmdev.co.za \
+              --non-interactive
+          fi
+
+          # ---- Reload nginx with certs ----
+          docker compose restart nginx
 
           EOF
