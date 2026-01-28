@@ -56,6 +56,37 @@ services:
       - db
     networks:
       - drupal_network
+  
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: drupal_nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/certbot/www:/var/www/certbot
+      - ./nginx/certbot/conf:/etc/letsencrypt
+    depends_on:
+      - web
+    networks:
+      - drupal_network
+  certbot:
+    image: certbot/certbot
+    container_name: drupal_certbot
+    restart: unless-stopped
+    volumes:
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./nginx/certbot/www:/var/www/certbot
+    entrypoint: >
+      sh -c "trap exit TERM;
+      while :; do
+        certbot renew --webroot -w /var/www/certbot;
+        sleep 12h;
+      done"
+    networks:
+      - drupal_network
 
 volumes:
   db_data:

@@ -17,3 +17,28 @@ to manually update drupal
 
 
 `composer update "drupal/core-*" --with-all-dependencies`
+
+
+for certs 
+
+
+docker compose run --rm certbot certonly \
+  --webroot \
+  -w /var/www/certbot \
+  -d drupal.blue.kmdev.co.za \
+  --agree-tos \
+  --email admin@blue.kmdev.co.za \
+  --non-interactive
+
+
+
+docker compose run --rm certbot certonly \
+  --webroot \
+  -w /var/www/certbot \
+  -d pma.blue.kmdev.co.za \
+  --agree-tos \
+  --email admin@blue.kmdev.co.za \
+  --non-interactive
+
+
+docker compose restart nginx
