@@ -6,12 +6,12 @@ set -e
 echo "=== Docker Entrypoint Script Starting ==="
 
 # Check if vendor directory exists, if not run composer install
-if [ ! -f "/var/www/html/drupal/vendor/autoload.php" ]; then
+if [ ! -f "/var/www/html/vendor/autoload.php" ]; then
     echo "Vendor directory not found. Running composer install..."
     echo "Current directory: $(pwd)"
-    echo "Checking composer.json exists: $(test -f /var/www/html/drupal/composer.json && echo 'YES' || echo 'NO')"
+    echo "Checking composer.json exists: $(test -f /var/www/html/composer.json && echo 'YES' || echo 'NO')"
     
-    cd /var/www/html/drupal
+    cd /var/www/html
     
     # Set composer memory limit and process timeout
     export COMPOSER_MEMORY_LIMIT=-1
@@ -31,10 +31,10 @@ if [ ! -f "/var/www/html/drupal/vendor/autoload.php" ]; then
     fi
     
     # Verify autoload file exists
-    if [ ! -f "/var/www/html/drupal/vendor/autoload.php" ]; then
+    if [ ! -f "/var/www/html/vendor/autoload.php" ]; then
         echo "ERROR: vendor/autoload.php was not created after composer install."
         echo "Listing vendor directory contents:"
-        ls -la /var/www/html/drupal/vendor/ 2>&1 || echo "Vendor directory does not exist"
+        ls -la /var/www/html/vendor/ 2>&1 || echo "Vendor directory does not exist"
         exit 1
     fi
     echo "Verified: vendor/autoload.php exists"
@@ -43,14 +43,13 @@ else
 fi
 
 # Fix permissions for specific directories that need write access
-# Note: We don't chown the entire drupal directory as it's a volume mount
-if [ -d "/var/www/html/drupal/web/sites/default/files" ]; then
+# Note: We don't chown the entire project directory as it's a volume mount
+if [ -d "/var/www/html/web/sites/default/files" ]; then
     echo "Fixing permissions for sites/default/files..."
-    chown -R www-data:www-data /var/www/html/drupal/web/sites/default/files 2>/dev/null || echo "Warning: Could not change ownership of files directory"
-    chmod -R 755 /var/www/html/drupal/web/sites/default/files 2>/dev/null || echo "Warning: Could not change permissions of files directory"
+    chown -R www-data:www-data /var/www/html/web/sites/default/files 2>/dev/null || echo "Warning: Could not change ownership of files directory"
+    chmod -R 755 /var/www/html/web/sites/default/files 2>/dev/null || echo "Warning: Could not change permissions of files directory"
 fi
 
 echo "Starting Apache..."
 # Start Apache (this should not return)
 exec apache2-foreground
-

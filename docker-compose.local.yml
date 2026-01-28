@@ -9,10 +9,10 @@ services:
     ports:
       - "20100:80"
     volumes:
-      - ./drupal:/var/www/html/drupal
+      - .:/var/www/html
       # Use named volume for vendor to improve performance on Windows
       # This avoids slow file I/O through Windows Docker volume mounts
-      - drupal_vendor:/var/www/html/drupal/vendor
+      - drupal_vendor:/var/www/html/vendor
     env_file:
       - .env
     environment:

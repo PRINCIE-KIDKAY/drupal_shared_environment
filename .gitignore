@@ -9,7 +9,7 @@
 *.log
 docker-compose.override.yml
 .docker/
-drupal/vendor
+vendor/
 
 # Database
 *.sql

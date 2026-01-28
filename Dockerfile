@@ -1,4 +1,4 @@
-FROM php:8.3-apache
+FROM php:8.4-apache
 
 # Set working directory
 WORKDIR /var/www/html
@@ -11,10 +11,12 @@ RUN apt-get update && apt-get install -y \
     libonig-dev \
     libxml2-dev \
     libzip-dev \
+    libsqlite3-dev \
     zip \
     unzip \
     && docker-php-ext-install pdo_mysql pdo \
     && docker-php-ext-install mysqli \
+    && docker-php-ext-install pdo_sqlite \
     && docker-php-ext-install gd \
     && docker-php-ext-install mbstring \
     && docker-php-ext-install xml \
@@ -25,9 +27,9 @@ RUN apt-get update && apt-get install -y \
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy Drupal project files (vendor is excluded via .dockerignore)
+# Copy project files (vendor is excluded via .dockerignore)
 # This ensures files are available in production without volume mounts
-COPY drupal /var/www/html/drupal
+COPY . /var/www/html
 
 # Enable Apache mod_rewrite and other performance modules
 RUN a2enmod rewrite headers expires deflate
@@ -60,13 +62,13 @@ RUN { \
 # Configure Apache for Drupal with performance optimizations
 RUN echo '<VirtualHost *:80>' > /etc/apache2/sites-available/000-default.conf \
     && echo '    ServerAdmin webmaster@localhost' >> /etc/apache2/sites-available/000-default.conf \
-    && echo '    DocumentRoot /var/www/html/drupal/web' >> /etc/apache2/sites-available/000-default.conf \
+    && echo '    DocumentRoot /var/www/html/web' >> /etc/apache2/sites-available/000-default.conf \
     && echo '' >> /etc/apache2/sites-available/000-default.conf \
     && echo '    # Performance optimizations' >> /etc/apache2/sites-available/000-default.conf \
     && echo '    EnableSendfile Off' >> /etc/apache2/sites-available/000-default.conf \
     && echo '    FileETag None' >> /etc/apache2/sites-available/000-default.conf \
     && echo '' >> /etc/apache2/sites-available/000-default.conf \
-    && echo '    <Directory /var/www/html/drupal/web>' >> /etc/apache2/sites-available/000-default.conf \
+    && echo '    <Directory /var/www/html/web>' >> /etc/apache2/sites-available/000-default.conf \
     && echo '        Options -Indexes +FollowSymLinks' >> /etc/apache2/sites-available/000-default.conf \
     && echo '        AllowOverride All' >> /etc/apache2/sites-available/000-default.conf \
     && echo '        Require all granted' >> /etc/apache2/sites-available/000-default.conf \
@@ -97,4 +99,3 @@ EXPOSE 80
 
 # Use entrypoint script
 ENTRYPOINT ["docker-entrypoint.sh"]
-
