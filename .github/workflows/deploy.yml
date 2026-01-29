@@ -68,109 +68,97 @@ jobs:
       - name: Install sshpass
         run: sudo apt-get update && sudo apt-get install -y sshpass
 
-      - name: Create and renew certificates
+      - name: Create and validate certificates
         env:
           SERVER_HOST: ${{ secrets.SERVER_IP }}
           SERVER_USER: ${{ secrets.SERVER_USER }}
           SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
         run: |
-          echo "USER=$SERVER_USER"
-          echo "HOST=$SERVER_HOST"
-          echo "Starting certificate creation/renewal process..."
-        
-          sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -o ServerAliveCountMax=3 "$SERVER_USER@$SERVER_HOST" << 'EOF'
-          
-          set -e
+          sshpass -p "$SERVER_PASSWORD" ssh -o StrictHostKeyChecking=no "$SERVER_USER@$SERVER_HOST" << 'EOF'
+          set -euo pipefail
 
-          # ---- Config ----
           PROJECT_DIR="$HOME/dev/projects/bluevine"
           COMPOSE_FILE="docker-compose.prod.yml"
 
           cd "$PROJECT_DIR"
-          ls  
 
-          # ---- Ensure certbot directories exist ----
+          echo "===> Ensuring certbot dirs"
           mkdir -p ./nginx/certbot/www
           mkdir -p ./nginx/certbot/conf
 
-          # ---- Ensure nginx is running and healthy ----
-          echo "Checking nginx status..."
-          if ! docker compose -f "$COMPOSE_FILE" ps nginx | grep -q "Up"; then
-            echo "Starting nginx..."
-            docker compose -f "$COMPOSE_FILE" up -d nginx
-            echo "Waiting for nginx to be ready..."
-            sleep 5
-          fi
+          echo "===> Starting nginx (HTTP only mode)"
+          docker compose -f "$COMPOSE_FILE" up -d nginx
 
-          # ---- Verify nginx is running ----
-          if ! docker compose -f "$COMPOSE_FILE" ps nginx | grep -q "Up"; then
-            echo "ERROR: Nginx failed to start!"
+          echo "===> Waiting for nginx..."
+          sleep 5
+
+          echo "===> Verifying nginx container state"
+          docker compose -f "$COMPOSE_FILE" ps nginx | grep -q "Up" || {
+            echo "FATAL: nginx not running"
             docker compose -f "$COMPOSE_FILE" logs nginx
             exit 1
-          fi
-
-          # ---- Verify nginx configuration ----
-          echo "Verifying nginx configuration..."
-          if ! docker compose -f "$COMPOSE_FILE" exec -T nginx nginx -t 2>&1; then
-            echo "WARNING: Nginx configuration test failed, but continuing..."
-            echo "This may be due to missing SSL certificates which will be created now"
-          fi
-
-          # ---- Test ACME challenge path is accessible ----
-          echo "Testing ACME challenge path..."
-          docker compose -f "$COMPOSE_FILE" exec -T nginx sh -c "echo 'test' > /var/www/certbot/test.txt && cat /var/www/certbot/test.txt" || {
-            echo "WARNING: Could not write to certbot webroot"
           }
 
-          # ---- Bootstrap certs ONLY (no renew in CI) ----
-          create_cert() {
-            local domain=$1
-            local cert_dir="./nginx/certbot/conf/live/$domain"
-            
-            echo "Checking certificate for $domain..."
-            if [ ! -d "$cert_dir" ]; then
-              echo "Creating certificate for $domain..."
-              
-              # Run certbot with full output
-              if docker compose -f "$COMPOSE_FILE" run --rm certbot certonly \
-                --webroot \
-                -w /var/www/certbot \
-                -d "$domain" \
-                --agree-tos \
-                --email certs@kmdev.co.za \
-                --non-interactive \
-                --verbose 2>&1; then
-                echo "Successfully created certificate for $domain"
-                
-                # Verify certificate was created
-                if [ -d "$cert_dir" ] && [ -f "$cert_dir/fullchain.pem" ]; then
-                  echo "Certificate verified: $cert_dir/fullchain.pem exists"
-                else
-                  echo "WARNING: Certificate directory exists but fullchain.pem not found"
-                fi
-              else
-                local exit_code=$?
-                echo "ERROR: Failed to create certificate for $domain (exit code: $exit_code)"
-                echo "Checking if domain is reachable..."
-                curl -I "http://$domain/.well-known/acme-challenge/test" || echo "Domain not reachable"
-                return 1
-              fi
-            else
-              echo "Certificate already exists for $domain"
+          echo "===> Verifying nginx config (HTTP only)"
+          docker compose -f "$COMPOSE_FILE" exec -T nginx nginx -t || {
+            echo "FATAL: nginx config invalid"
+            exit 1
+          }
+
+          echo "===> Verifying ACME path write"
+          docker compose -f "$COMPOSE_FILE" exec -T nginx sh -c "echo test > /var/www/certbot/test.txt"
+          docker compose -f "$COMPOSE_FILE" exec -T nginx cat /var/www/certbot/test.txt | grep -q test || {
+            echo "FATAL: ACME webroot not writable"
+            exit 1
+          }
+
+          create_cert () {
+            DOMAIN="$1"
+            CERT_DIR="./nginx/certbot/conf/live/$DOMAIN"
+
+            echo "===> Processing $DOMAIN"
+
+            if [ -d "$CERT_DIR" ]; then
+              echo "Certificate already exists for $DOMAIN"
+              return 0
             fi
+
+            echo "===> Requesting certificate for $DOMAIN"
+
+            docker compose -f "$COMPOSE_FILE" run --rm certbot certonly \
+              --webroot \
+              -w /var/www/certbot \
+              -d "$DOMAIN" \
+              --agree-tos \
+              --email certs@kmdev.co.za \
+              --non-interactive \
+              --rsa-key-size 4096
+
+            echo "===> Verifying cert files for $DOMAIN"
+            test -f "$CERT_DIR/fullchain.pem" || { echo "FATAL: fullchain.pem missing for $DOMAIN"; exit 1; }
+            test -f "$CERT_DIR/privkey.pem"   || { echo "FATAL: privkey.pem missing for $DOMAIN"; exit 1; }
+
+            echo "OK: $DOMAIN certificate valid"
           }
 
-          # Create certificates
-          create_cert "drupal.blue.kmdev.co.za" || exit 1
-          create_cert "pma.blue.kmdev.co.za" || exit 1
+          # ---- Create certs ----
+          create_cert "drupal.blue.kmdev.co.za"
+          create_cert "pma.blue.kmdev.co.za"
 
-          # ---- Reload nginx to pick up new certificates ----
-          echo "Reloading nginx..."
-          docker compose -f "$COMPOSE_FILE" exec -T nginx nginx -s reload || {
-            echo "Nginx reload failed, restarting..."
-            docker compose -f "$COMPOSE_FILE" restart nginx
+          echo "===> Enabling SSL configs"
+          mkdir -p ./nginx/conf.d/ssl-enabled
+
+          # Copy single mixed SSL file (drupal + pma)
+          cp ./nginx/conf.d/drupal.ssl.template.conf \
+            ./nginx/conf.d/ssl-enabled/drupal.ssl.conf
+
+          echo "===> Reloading nginx with SSL"
+          docker compose -f "$COMPOSE_FILE" exec -T nginx nginx -t || {
+            echo "FATAL: nginx SSL config invalid"
+            exit 1
           }
 
-          echo "Certificate process completed successfully!"
+          docker compose -f "$COMPOSE_FILE" exec -T nginx nginx -s reload
 
+          echo "=== SSL bootstrap completed successfully ==="
           EOF
