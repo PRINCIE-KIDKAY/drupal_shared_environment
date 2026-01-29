@@ -32,49 +32,29 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 COPY . /var/www/html
 
 # Enable Apache mod_rewrite and other performance modules
-RUN a2enmod rewrite headers expires deflate mpm_prefork
-
-# Configure Apache MPM prefork for optimal performance with 4 CPU cores
-# This allows Apache to handle more concurrent requests
-RUN { \
-    echo '<IfModule mpm_prefork_module>'; \
-    echo '    StartServers            8'; \
-    echo '    MinSpareServers         5'; \
-    echo '    MaxSpareServers         20'; \
-    echo '    ServerLimit             256'; \
-    echo '    MaxRequestWorkers       256'; \
-    echo '    MaxConnectionsPerChild  10000'; \
-    echo '</IfModule>'; \
-} > /etc/apache2/conf-available/mpm-prefork.conf && \
-    a2enconf mpm-prefork
+RUN a2enmod rewrite headers expires deflate
 
 # Set optimized PHP.ini settings for Drupal performance
-# Optimized for 4 CPU cores and 6GB+ available RAM
 RUN { \
     echo 'opcache.enable=1'; \
-    echo 'opcache.memory_consumption=512M'; \
-    echo 'opcache.interned_strings_buffer=32'; \
-    echo 'opcache.max_accelerated_files=20000'; \
+    echo 'opcache.memory_consumption=192M'; \
+    echo 'opcache.interned_strings_buffer=12'; \
+    echo 'opcache.max_accelerated_files=10000'; \
     echo 'opcache.revalidate_freq=60'; \
     echo 'opcache.validate_timestamps=1'; \
     echo 'opcache.save_comments=1'; \
     echo 'opcache.fast_shutdown=1'; \
     echo 'opcache.enable_cli=0'; \
-    echo 'opcache.max_wasted_percentage=10'; \
     echo ''; \
-    echo 'upload_max_filesize=64M'; \
-    echo 'post_max_size=64M'; \
+    echo 'upload_max_filesize=32M'; \
+    echo 'post_max_size=32M'; \
     echo ''; \
-    echo 'memory_limit=512M'; \
-    echo 'max_execution_time=300'; \
-    echo 'max_input_time=300'; \
-    echo 'max_input_vars=5000'; \
+    echo 'memory_limit=256M'; \
+    echo 'max_execution_time=120'; \
+    echo 'max_input_time=120'; \
     echo ''; \
-    echo 'realpath_cache_size=8192K'; \
-    echo 'realpath_cache_ttl=3600'; \
-    echo ''; \
-    echo 'max_children=50'; \
-    echo 'process_idle_timeout=10s'; \
+    echo 'realpath_cache_size=2048K'; \
+    echo 'realpath_cache_ttl=600'; \
 } > /usr/local/etc/php/conf.d/drupal.ini
 
 
