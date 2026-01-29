@@ -87,6 +87,7 @@ jobs:
           COMPOSE_FILE="docker-compose.prod.yml"
 
           cd "$PROJECT_DIR"
+          ls  
 
           # ---- Ensure certbot directories exist ----
           mkdir -p ./nginx/certbot/www
