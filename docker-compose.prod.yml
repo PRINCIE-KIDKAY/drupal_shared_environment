@@ -1,3 +1,4 @@
+version: '3.8'
 
 services:
   web:
@@ -22,6 +23,14 @@ services:
       - db
     networks:
       - drupal_network
+    deploy:
+      resources:
+        limits:
+          cpus: '3.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
 
   db:
     image: mysql:8.0
@@ -38,7 +47,27 @@ services:
       - db_data:/var/lib/mysql
     networks:
       - drupal_network
-    command: --default-authentication-plugin=mysql_native_password
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --innodb_buffer_pool_size=2G
+      --innodb_log_file_size=256M
+      --innodb_flush_log_at_trx_commit=2
+      --innodb_flush_method=O_DIRECT
+      --max_connections=200
+      --query_cache_size=128M
+      --query_cache_type=1
+      --tmp_table_size=256M
+      --max_heap_table_size=256M
+      --table_open_cache=4000
+      --thread_cache_size=50
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 3G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
@@ -80,6 +109,14 @@ services:
       - web
     networks:
       - drupal_network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
   certbot:
     image: certbot/certbot
     container_name: drupal_certbot
