@@ -8,12 +8,17 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     libpng-dev \
+    libjpeg62-turbo-dev \
+    libwebp-dev \
+    libavif-dev \
+    libfreetype6-dev \
     libonig-dev \
     libxml2-dev \
     libzip-dev \
     libsqlite3-dev \
     zip \
     unzip \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp --with-avif \
     && docker-php-ext-install pdo_mysql pdo \
     && docker-php-ext-install mysqli \
     && docker-php-ext-install pdo_sqlite \
@@ -55,6 +60,9 @@ RUN { \
     echo ''; \
     echo 'realpath_cache_size=2048K'; \
     echo 'realpath_cache_ttl=600'; \
+    echo ''; \
+    echo '; Drupal: enable output buffering for better performance'; \
+    echo 'output_buffering=4096'; \
 } > /usr/local/etc/php/conf.d/drupal.ini
 
 
